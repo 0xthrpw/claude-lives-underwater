@@ -1,0 +1,104 @@
+diff --git a/src/StrudelController.ts b/src/StrudelController.ts
+index 1d8e386..719e20b 100644
+--- a/src/StrudelController.ts
++++ b/src/StrudelController.ts
+@@ -22,6 +22,7 @@ export class StrudelController {
+   private errorRecovery: ErrorRecovery;
+   private logger: Logger;
+   private isHeadless: boolean;
++  private strudelUrl: string;
+   private editorCache: string = '';
+   private cacheTimestamp: number = 0;
+   private readonly CACHE_TTL = 100; // milliseconds
+@@ -34,14 +35,20 @@ export class StrudelController {
+   private consoleErrors: string[] = [];
+   private consoleWarnings: string[] = [];
+ 
+-  constructor(headless: boolean = false) {
++  constructor(headless: boolean = false, strudelUrl: string = 'https://strudel.cc/') {
+     this.isHeadless = headless;
++    this.strudelUrl = strudelUrl;
+     this.analyzer = new AudioAnalyzer();
+     this.validator = new PatternValidator();
+     this.errorRecovery = new ErrorRecovery();
+     this.logger = new Logger();
+   }
+ 
++  /** URL the controller will navigate Playwright to. Reads strudel_url from config.json. */
++  getStrudelUrl(): string {
++    return this.strudelUrl;
++  }
++
+   /**
+    * Initializes the browser and navigates to Strudel.cc
+    * @returns Success message when initialization is complete
+@@ -84,7 +91,7 @@ export class StrudelController {
+       }
+     });
+ 
+-    await this._page.goto('https://strudel.cc/', {
++    await this._page.goto(this.strudelUrl, {
+       waitUntil: 'domcontentloaded', // Changed from networkidle for faster load
+       timeout: 15000,
+     });
+diff --git a/src/server/server.ts b/src/server/server.ts
+index e8ae14b..6beeda5 100644
+--- a/src/server/server.ts
++++ b/src/server/server.ts
+@@ -77,13 +77,13 @@ export class StrudelMCPServer {
+       }
+     );
+ 
+-    this.controller = new StrudelController(config.headless);
++    this.controller = new StrudelController(config.headless, config.strudel_url);
+     this.store = new PatternStore('./patterns');
+     this.theory = new MusicTheory();
+     this.generator = new PatternGenerator();
+     this.geminiService = new GeminiService();
+     this.midiExportService = new MIDIExportService();
+-    this.sessionManager = new SessionManager(config.headless);
++    this.sessionManager = new SessionManager(config.headless, config.strudel_url);
+     this.logger = new Logger();
+     this.perfMonitor = new PerformanceMonitor();
+     this.strudelEngine = new StrudelEngine();
+diff --git a/src/services/SessionManager.ts b/src/services/SessionManager.ts
+index 50ea722..0255480 100644
+--- a/src/services/SessionManager.ts
++++ b/src/services/SessionManager.ts
+@@ -34,6 +34,7 @@ export class SessionManager {
+   private defaultSessionId: string = 'default';
+   private logger: Logger;
+   private isHeadless: boolean;
++  private strudelUrl: string;
+ 
+   /** Maximum concurrent sessions to prevent resource exhaustion */
+   private readonly MAX_SESSIONS = 5;
+@@ -46,8 +47,9 @@ export class SessionManager {
+ 
+   private cleanupTimer: NodeJS.Timeout | null = null;
+ 
+-  constructor(headless: boolean = false) {
++  constructor(headless: boolean = false, strudelUrl: string = 'https://strudel.cc/') {
+     this.isHeadless = headless;
++    this.strudelUrl = strudelUrl;
+     this.logger = new Logger();
+   }
+ 
+@@ -111,7 +113,7 @@ export class SessionManager {
+     const page = await context.newPage();
+ 
+     // Create controller with injected page (using a factory pattern)
+-    const controller = new StrudelController(this.isHeadless);
++    const controller = new StrudelController(this.isHeadless, this.strudelUrl);
+ 
+     // Initialize the controller with the existing page
+     await this.initializeControllerWithPage(controller, page);
+@@ -152,7 +154,7 @@ export class SessionManager {
+     });
+ 
+     // Navigate to Strudel
+-    await page.goto('https://strudel.cc/', {
++    await page.goto(this.strudelUrl, {
+       waitUntil: 'domcontentloaded',
+       timeout: 15000,
+     });

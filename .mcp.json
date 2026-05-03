@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "strudel": {
+      "type": "stdio",
+      "command": "/home/throw/work/ai/music/claude-lives-underwater/bin/strudel-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}
